@@ -6,7 +6,8 @@
 
 ## 1. ログイン
 
-1. アプリのURL（CloudFront配信URL：https://d33o0pb58hdrlj.cloudfront.net/index.html）にアクセスします。
+1. アプリのURL（CloudFront配信URL）にアクセスします。
+https://d33o0pb58hdrlj.cloudfront.net/index.html
 2. ログイン画面が表示されたら、Amazon Cognito Hosted UI で社内アカウントにログインします。
 3. 初回ログイン時はプロフィール（氏名・目標など）の設定を行ってください（サイドバー「⚙️ プロフィール」）。
 
