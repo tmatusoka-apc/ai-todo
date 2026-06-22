@@ -1,0 +1,116 @@
+name: AWS-CDK-Deployment
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ap-northeast-1
+
+    steps:
+      - name: 1. コードの取得
+        uses: actions/checkout@v4
+
+      - name: 2. Node.js セットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: cdk/package.json
+
+      - name: 3. AWS 認証情報の設定
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      - name: 4. CDK 依存パッケージのインストール
+        run: npm ci
+        working-directory: cdk
+
+      - name: 5. CDK Deploy（全スタック）
+        run: npx cdk deploy --all --require-approval never --outputs-file ../cdk-outputs.json
+        working-directory: cdk
+        env:
+          # SES_FROM_EMAIL が設定されている場合のみ Cognito の送信元を SES に変更
+          # 設定方法: GitHub Secrets に SES_FROM_EMAIL=noreply@your-domain.com を追加
+          #           かつ ap-northeast-1 の SES でそのアドレスを事前に認証済みにすること
+          SES_FROM_EMAIL: ${{ secrets.SES_FROM_EMAIL }}
+          # CLOUDFRONT_URL: 初回デプロイ後に GitHub Secrets に CloudFront URL を登録すると
+          #                 Lambda の CORS 制限が * → 実際のドメインに切り替わる
+          #                 例: https://d1234abcdef.cloudfront.net
+          ALLOWED_ORIGIN: ${{ secrets.CLOUDFRONT_URL }}
+          # GEMINI_MODEL: 使用する Gemini モデル名（未設定時は gemini-1.5-flash）
+          #               例: gemini-1.5-flash / gemini-2.0-flash / gemini-1.5-pro
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+
+      - name: 6. Gemini API キーを Secrets Manager に保存
+        run: |
+          aws secretsmanager put-secret-value \
+            --secret-id ai-todo/gemini-api-key \
+            --secret-string '{"apiKey":"${{ secrets.GEMINI_API_KEY }}"}' \
+            --region ap-northeast-1
+
+      - name: 6b. サインアップ許可ドメインを Secrets Manager に保存
+        run: |
+          DOMAIN="${{ secrets.ALLOWED_SIGNUP_DOMAIN }}"
+          if [ -z "$DOMAIN" ]; then DOMAIN="ap-com.co.jp"; fi
+          aws secretsmanager put-secret-value \
+            --secret-id ai-todo/allowed-domain \
+            --secret-string "{\"domain\":\"${DOMAIN}\"}" \
+            --region ap-northeast-1
+
+      - name: 7. CDK アウトプットから各種値を取得
+        id: cfn_outputs
+        run: |
+          CF_URL=$(jq -r '.AiTodoAppStack.CloudFrontUrl' cdk-outputs.json)
+          BUCKET=$(jq -r '.AiTodoAppStack.FrontendBucketName' cdk-outputs.json)
+          DIST_ID=$(jq -r '.AiTodoAppStack.DistributionId' cdk-outputs.json)
+          USER_POOL_ID=$(jq -r '.AiTodoSecurityStack.UserPoolId' cdk-outputs.json)
+          CLIENT_ID=$(jq -r '.AiTodoSecurityStack.UserPoolClientId' cdk-outputs.json)
+          echo "cf_url=$CF_URL"             >> $GITHUB_OUTPUT
+          echo "bucket=$BUCKET"             >> $GITHUB_OUTPUT
+          echo "dist_id=$DIST_ID"           >> $GITHUB_OUTPUT
+          echo "user_pool_id=$USER_POOL_ID" >> $GITHUB_OUTPUT
+          echo "client_id=$CLIENT_ID"       >> $GITHUB_OUTPUT
+
+      - name: 8. プレースホルダーを index.html / admin-analysis.html / weight-loss.html に注入
+        run: |
+          CF_URL="${{ steps.cfn_outputs.outputs.cf_url }}"
+          UP_ID="${{ steps.cfn_outputs.outputs.user_pool_id }}"
+          CL_ID="${{ steps.cfn_outputs.outputs.client_id }}"
+          sed -i "s|API_GATEWAY_URL_PLACEHOLDER|${CF_URL}|g"         index.html
+          sed -i "s|COGNITO_USER_POOL_ID_PLACEHOLDER|${UP_ID}|g"     index.html
+          sed -i "s|COGNITO_CLIENT_ID_PLACEHOLDER|${CL_ID}|g"        index.html
+          sed -i "s|API_GATEWAY_URL_PLACEHOLDER|${CF_URL}|g"         admin-analysis.html
+          sed -i "s|COGNITO_USER_POOL_ID_PLACEHOLDER|${UP_ID}|g"     admin-analysis.html
+          sed -i "s|COGNITO_CLIENT_ID_PLACEHOLDER|${CL_ID}|g"        admin-analysis.html
+          sed -i "s|API_GATEWAY_URL_PLACEHOLDER|${CF_URL}|g"         weight-loss.html
+          sed -i "s|COGNITO_USER_POOL_ID_PLACEHOLDER|${UP_ID}|g"     weight-loss.html
+          sed -i "s|COGNITO_CLIENT_ID_PLACEHOLDER|${CL_ID}|g"        weight-loss.html
+
+      - name: 9. 静的ファイルを S3 にアップロード
+        run: |
+          aws s3 cp index.html          s3://${{ steps.cfn_outputs.outputs.bucket }}/index.html          --content-type "text/html; charset=utf-8"
+          aws s3 cp admin-analysis.html s3://${{ steps.cfn_outputs.outputs.bucket }}/admin-analysis.html --content-type "text/html; charset=utf-8"
+          aws s3 cp weight-loss.html    s3://${{ steps.cfn_outputs.outputs.bucket }}/weight-loss.html    --content-type "text/html; charset=utf-8"
+
+      - name: 10. CloudFront キャッシュを無効化
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.cfn_outputs.outputs.dist_id }} \
+            --paths "/*"
+
+      - name: 11. デプロイ完了サマリ
+        run: |
+          echo "## ✅ デプロイ完了" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: ${{ steps.cfn_outputs.outputs.cf_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **管理者**: ${{ steps.cfn_outputs.outputs.cf_url }}/admin-analysis.html" >> $GITHUB_STEP_SUMMARY
+          echo "- **減量サポート**: ${{ steps.cfn_outputs.outputs.cf_url }}/weight-loss.html" >> $GITHUB_STEP_SUMMARY
+          echo "- **S3 バケット**: ${{ steps.cfn_outputs.outputs.bucket }}" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,276 @@
+<mxfile host="app.diagrams.net" version="21.0.0">
+  <diagram name="ai-todo Architecture" id="ai-todo-arch">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ========== BROWSER ========== -->
+        <mxCell id="browser-group" value="Browser / Client" style="swimlane;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="200" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="browser" value="🌐 index.html&#xa;weight-loss.html&#xa;admin-analysis.html" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="browser-group">
+          <mxGeometry x="20" y="45" width="160" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- ========== AWS OUTER ========== -->
+        <mxCell id="aws-group" value="AWS (ap-northeast-1)" style="swimlane;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="300" y="20" width="1100" height="860" as="geometry" />
+        </mxCell>
+
+        <!-- CloudFront + S3 -->
+        <mxCell id="cdn-group" value="配信レイヤー" style="swimlane;startSize=25;fillColor=#f5f5f5;strokeColor=#aaa;fontSize=12;" vertex="1" parent="aws-group">
+          <mxGeometry x="20" y="50" width="220" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="cloudfront" value="☁️ CloudFront" style="rounded=1;fillColor=#f5f5f5;strokeColor=#555;fontSize=11;" vertex="1" parent="cdn-group">
+          <mxGeometry x="15" y="35" width="90" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="🪣 S3&#xa;(Frontend)" style="rounded=1;fillColor=#f5f5f5;strokeColor=#555;fontSize=11;" vertex="1" parent="cdn-group">
+          <mxGeometry x="115" y="35" width="90" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Cognito -->
+        <mxCell id="cognito-group" value="認証レイヤー" style="swimlane;startSize=25;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="aws-group">
+          <mxGeometry x="260" y="50" width="240" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="cognito" value="🔐 Cognito&#xa;User Pool" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="cognito-group">
+          <mxGeometry x="15" y="35" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="lambda-pre" value="λ pre-signup" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="cognito-group">
+          <mxGeometry x="130" y="30" width="95" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="lambda-post" value="λ post-confirm" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="cognito-group">
+          <mxGeometry x="130" y="65" width="95" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- API Gateway -->
+        <mxCell id="apigw" value="🔀 API Gateway (REST)&#xa;ai-todo-api  /v1" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;fontStyle=1;" vertex="1" parent="aws-group">
+          <mxGeometry x="420" y="65" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="apigw-mock" value="📦 Mock統合&#xa;POST /mock/gemini/generateContent&#xa;(スタブ応答)" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;dashed=1;" vertex="1" parent="aws-group">
+          <mxGeometry x="420" y="145" width="220" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- Lambda group -->
+        <mxCell id="lambda-group" value="Lambda 関数群" style="swimlane;startSize=25;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" vertex="1" parent="aws-group">
+          <mxGeometry x="20" y="220" width="730" height="380" as="geometry" />
+        </mxCell>
+
+        <!-- Main app lambdas -->
+        <mxCell id="lam-users" value="λ ai-todo-users&#xa;GET/PUT /users/me" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="lambda-group">
+          <mxGeometry x="20" y="40" width="160" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="lam-tasks" value="λ ai-todo-tasks&#xa;GET/POST/PUT/DELETE /tasks" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="lambda-group">
+          <mxGeometry x="200" y="40" width="160" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="lam-habits" value="λ ai-todo-habits&#xa;GET/POST/PUT/DELETE /habits" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="lambda-group">
+          <mxGeometry x="380" y="40" width="160" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="lam-groups" value="λ ai-todo-groups&#xa;GET/POST/DELETE /groups" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="lambda-group">
+          <mxGeometry x="560" y="40" width="160" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="lam-goals" value="λ ai-todo-goals&#xa;/goals  /ai/backcast&#xa;+ Gemini (バックキャスト)" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="lambda-group">
+          <mxGeometry x="20" y="110" width="160" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="lam-ai" value="λ ai-todo-ai&#xa;/ai/suggestion&#xa;/ai/suggestions&#xa;+ Gemini (提案生成)" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="lambda-group">
+          <mxGeometry x="200" y="110" width="160" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="lam-analytics" value="λ ai-todo-analytics&#xa;GET /analytics/summary" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="lambda-group">
+          <mxGeometry x="380" y="110" width="160" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- Weight-loss lambda (highlighted) -->
+        <mxCell id="lam-wl" value="λ ai-todo-weight-loss&#xa;/wl/dashboard  /wl/weight-logs&#xa;/wl/todos  /wl/knowledge&#xa;/wl/chat (+ Gemini)  /wl/profile" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;fontStyle=1;" vertex="1" parent="lambda-group">
+          <mxGeometry x="20" y="200" width="700" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Secrets inside lambda group -->
+        <mxCell id="secrets-note" value="※ 全Lambda: Secrets Manager から APIキー取得&#xa;　 stubEndpoint 設定でスタブ切り替え可能（TTL 5分）" style="text;fontSize=10;fontStyle=2;fillColor=none;strokeColor=none;" vertex="1" parent="lambda-group">
+          <mxGeometry x="20" y="285" width="700" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- DynamoDB group -->
+        <mxCell id="dynamo-group" value="DynamoDB テーブル" style="swimlane;startSize=25;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="aws-group">
+          <mxGeometry x="20" y="625" width="730" height="210" as="geometry" />
+        </mxCell>
+
+        <mxCell id="db-users" value="👤 ai-todo-users&#xa;PK: userId" style="shape=cylinder3;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="dynamo-group">
+          <mxGeometry x="10" y="40" width="90" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="db-tasks" value="✅ ai-todo-tasks&#xa;PK: userId&#xa;SK: taskId" style="shape=cylinder3;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="dynamo-group">
+          <mxGeometry x="110" y="40" width="90" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="db-habits" value="🔄 ai-todo-habits&#xa;PK: userId&#xa;SK: habitId" style="shape=cylinder3;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="dynamo-group">
+          <mxGeometry x="210" y="40" width="90" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="db-groups" value="👥 ai-todo-groups&#xa;ai-todo-group-members&#xa;ai-todo-activities" style="shape=cylinder3;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="dynamo-group">
+          <mxGeometry x="310" y="40" width="100" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="db-goals" value="🎯 ai-todo-goals&#xa;PK: userId&#xa;SK: goalId" style="shape=cylinder3;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="dynamo-group">
+          <mxGeometry x="420" y="40" width="90" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="db-wl-weight" value="⚖️ wl-weight-logs&#xa;PK: userId&#xa;SK: date" style="shape=cylinder3;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="dynamo-group">
+          <mxGeometry x="10" y="130" width="100" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="db-wl-todos" value="📝 wl-todos&#xa;PK: userId&#xa;SK: todoId" style="shape=cylinder3;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="dynamo-group">
+          <mxGeometry x="120" y="130" width="100" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="db-wl-knowledge" value="📚 wl-knowledge&#xa;PK: userId&#xa;SK: knowledgeId" style="shape=cylinder3;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="dynamo-group">
+          <mxGeometry x="230" y="130" width="110" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- Secrets Manager -->
+        <mxCell id="secrets-group" value="Secrets Manager" style="swimlane;startSize=25;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="aws-group">
+          <mxGeometry x="780" y="220" width="295" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="sec-gemini" value="🔑 ai-todo/gemini-api-key&#xa;{ apiKey, stubEndpoint? }" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="secrets-group">
+          <mxGeometry x="10" y="35" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="sec-domain" value="🔑 ai-todo/allowed-domain&#xa;{ domain }" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="secrets-group">
+          <mxGeometry x="10" y="83" width="200" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- ========== EXTERNAL ========== -->
+        <mxCell id="external-group" value="外部サービス" style="swimlane;startSize=30;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1460" y="200" width="160" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="gemini" value="🤖 Gemini API&#xa;gemini-2.0-flash&#xa;(googleapis.com)" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="external-group">
+          <mxGeometry x="10" y="45" width="140" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="gemini-stub" value="📦 APIGW Mock&#xa;(stubEndpoint設定時)" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;dashed=1;" vertex="1" parent="external-group">
+          <mxGeometry x="10" y="115" width="140" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ========== ARROWS ========== -->
+
+        <!-- Browser → CloudFront -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="browser" target="cloudfront" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- CloudFront → S3 -->
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="cloudfront" target="s3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Browser → Cognito -->
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="browser" target="cognito" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Browser → APIGW (through CloudFront) -->
+        <mxCell id="e4" value="JWT" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="browser" target="apigw" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Cognito → lambda-pre / lambda-post -->
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;dashed=1;" edge="1" source="cognito" target="lambda-pre" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;dashed=1;" edge="1" source="cognito" target="lambda-post" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- APIGW → Lambdas -->
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="apigw" target="lam-users" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="apigw" target="lam-tasks" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="apigw" target="lam-habits" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="apigw" target="lam-groups" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="apigw" target="lam-goals" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="apigw" target="lam-ai" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="apigw" target="lam-analytics" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="apigw" target="lam-wl" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Lambda → DynamoDB -->
+        <mxCell id="e15" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="lam-wl" target="db-wl-weight" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e16" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="lam-wl" target="db-wl-todos" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="lam-wl" target="db-wl-knowledge" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e18" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="lam-users" target="db-users" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e19" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="lam-tasks" target="db-tasks" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e20" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="lam-habits" target="db-habits" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e21" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="lam-groups" target="db-groups" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e22" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="lam-goals" target="db-goals" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Lambda → Secrets Manager -->
+        <mxCell id="e23" value="apiKey取得" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" edge="1" source="lam-wl" target="sec-gemini" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e24" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" edge="1" source="lam-goals" target="sec-gemini" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e25" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" edge="1" source="lam-ai" target="sec-gemini" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Lambda → Gemini / Mock -->
+        <mxCell id="e26" value="本番" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;" edge="1" source="lam-wl" target="gemini" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e27" value="スタブ" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d79b00;" edge="1" source="lam-wl" target="gemini-stub" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e28" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;" edge="1" source="lam-goals" target="gemini" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e29" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;" edge="1" source="lam-ai" target="gemini" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- APIGW Mock integration -->
+        <mxCell id="e30" value="stubEndpoint" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d79b00;" edge="1" source="apigw-mock" target="gemini-stub" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend" value="凡例" style="swimlane;startSize=20;fillColor=#f5f5f5;strokeColor=#aaa;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="40" y="220" width="200" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1" value="── 通常フロー" style="text;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="28" width="150" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2" value="- - Cognito トリガー / Secret取得" style="text;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="50" width="175" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3" value="🟣 weight-loss 機能" style="text;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="72" width="150" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4" value="🟠 スタブ切り替えフロー" style="text;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="94" width="175" height="20" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

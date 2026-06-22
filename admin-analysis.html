@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Health Todo - 管理者分析ダッシュボード</title>
+  <!-- Amazon Cognito Identity SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6/dist/amazon-cognito-identity.min.js"></script>
+  <style>
+    :root {
+      --primary: #667eea;
+      --success: #48bb78;
+      --warning: #ed8936;
+      --danger: #f56565;
+      --bg: #f7fafc;
+      --card: #ffffff;
+      --text: #2d3748;
+      --text-muted: #718096;
+      --border: #e2e8f0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+
+    header {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white; padding: 20px 30px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    header h1 { font-size: 22px; }
+    header span { font-size: 13px; opacity: 0.8; }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 30px 20px; }
+
+    /* KPI カード */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 30px; }
+    .kpi-card {
+      background: var(--card); border-radius: 12px; padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07); border-left: 4px solid var(--primary);
+    }
+    .kpi-card.success { border-color: var(--success); }
+    .kpi-card.warning { border-color: var(--warning); }
+    .kpi-card.danger  { border-color: var(--danger); }
+    .kpi-label { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+    .kpi-value { font-size: 32px; font-weight: 700; }
+    .kpi-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+    /* セクション */
+    .section { background: var(--card); border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    .section-title { font-size: 16px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+
+    /* テーブル */
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { background: var(--bg); padding: 10px 14px; text-align: left; font-size: 12px; color: var(--text-muted); font-weight: 600; border-bottom: 2px solid var(--border); }
+    td { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8f9ff; }
+
+    /* バッジ */
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-exercise { background: #ebf4ff; color: #2b6cb0; }
+    .badge-diet     { background: #f0fff4; color: #276749; }
+    .badge-sleep    { background: #faf5ff; color: #6b46c1; }
+    .badge-ok       { background: #f0fff4; color: #276749; }
+    .badge-ng       { background: #fff5f5; color: #c53030; }
+
+    /* 棒グラフ */
+    .bar-wrap { display: flex; align-items: center; gap: 10px; }
+    .bar-bg { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; background: var(--primary); transition: width 0.5s; }
+    .bar-pct { font-size: 12px; color: var(--text-muted); width: 36px; text-align: right; }
+
+    /* エクスポートボタン */
+    .btn-export {
+      background: var(--primary); color: white; border: none;
+      padding: 8px 18px; border-radius: 8px; font-size: 13px;
+      cursor: pointer; margin-left: auto; display: block;
+    }
+    .btn-export:hover { opacity: 0.9; }
+
+    .empty { color: var(--text-muted); text-align: center; padding: 30px; font-size: 14px; }
+    .updated { font-size: 12px; color: var(--text-muted); text-align: right; margin-top: 20px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🛡️ 管理者分析ダッシュボード</h1>
+    <span id="headerTime"></span>
+  </div>
+  <div style="text-align:right; font-size:13px; opacity:0.9;">
+    <div id="headerUserName"></div>
+    <div id="headerUserRole" style="opacity:0.7;"></div>
+    <a href="/" style="color:white; opacity:0.8; font-size:12px;">← アプリに戻る</a>
+  </div>
+</header>
+
+<!-- アクセス拒否メッセージ（権限なしの場合に表示） -->
+<div id="accessDenied" style="display:none; text-align:center; padding:80px 20px;">
+  <div style="font-size:64px; margin-bottom:16px;">🔐</div>
+  <h2 style="color:#2d3748; margin-bottom:8px;">アクセス権限がありません</h2>
+  <p id="accessDeniedMsg" style="color:#718096; margin-bottom:8px; white-space:pre-line;">このページは管理者または分析者のみアクセスできます。</p>
+  <p style="color:#a0aec0; font-size:13px; margin-bottom:24px;">※ Cognito でグループ変更後はページをリロードするだけで反映されます</p>
+  <a href="/" style="background:#667eea; color:white; padding:10px 24px; border-radius:8px; text-decoration:none; font-weight:600;">アプリに戻る</a>
+</div>
+
+<div id="mainContent" class="container">
+
+  <!-- KPI -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">総ユーザー数</div>
+      <div class="kpi-value" id="kpiUsers">0</div>
+      <div class="kpi-sub">登録済みアカウント</div>
+    </div>
+    <div class="kpi-card success">
+      <div class="kpi-label">総タスク数</div>
+      <div class="kpi-value" id="kpiTasks">0</div>
+      <div class="kpi-sub" id="kpiTasksSub">完了 0 件</div>
+    </div>
+    <div class="kpi-card warning">
+      <div class="kpi-label">平均達成率</div>
+      <div class="kpi-value" id="kpiRate">0%</div>
+      <div class="kpi-sub">全ユーザー平均</div>
+    </div>
+    <div class="kpi-card danger">
+      <div class="kpi-label">総習慣数</div>
+      <div class="kpi-value" id="kpiHabits">0</div>
+      <div class="kpi-sub">登録習慣の合計</div>
+    </div>
+  </div>
+
+  <!-- カテゴリ別達成率 -->
+  <div class="section">
+    <div class="section-title">📊 カテゴリ別 達成率</div>
+    <div id="categoryStats"></div>
+  </div>
+
+  <!-- ユーザー一覧 -->
+  <div class="section">
+    <div class="section-title">👥 ユーザー一覧</div>
+    <table>
+      <thead>
+        <tr>
+          <th>名前</th>
+          <th>メールアドレス</th>
+          <th>レベル</th>
+          <th>累計ポイント</th>
+          <th>タスク数</th>
+          <th>達成率</th>
+          <th>習慣数</th>
+          <th>登録日</th>
+        </tr>
+      </thead>
+      <tbody id="userTable"></tbody>
+    </table>
+  </div>
+
+  <!-- タスク一覧（直近30件） -->
+  <div class="section">
+    <div class="section-title">✅ タスク一覧（直近30件）
+      <button class="btn-export" onclick="exportCSV()">CSV エクスポート</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>ユーザー</th>
+          <th>カテゴリ</th>
+          <th>タスク名</th>
+          <th>ポイント</th>
+          <th>完了</th>
+          <th>日時</th>
+        </tr>
+      </thead>
+      <tbody id="taskTable"></tbody>
+    </table>
+  </div>
+
+  <div class="updated" id="updatedAt"></div>
+</div>
+
+<script>
+  // GitHub Actions がデプロイ時にプレースホルダーを置換
+  var API_GATEWAY_URL      = 'API_GATEWAY_URL_PLACEHOLDER';
+  var COGNITO_USER_POOL_ID = 'COGNITO_USER_POOL_ID_PLACEHOLDER';
+  var COGNITO_CLIENT_ID    = 'COGNITO_CLIENT_ID_PLACEHOLDER';
+
+  const ALLOWED_ROLES  = ['admin', 'analyst'];
+  const ROLE_LABEL     = { admin: '👑 管理者', analyst: '📊 分析者', user: '一般ユーザー' };
+  const CATEGORY_LABEL = { exercise: '🏃 運動', diet: '🍎 食事', sleep: '😴 睡眠' };
+  const CATEGORY_CLASS = { exercise: 'badge-exercise', diet: 'badge-diet', sleep: 'badge-sleep' };
+
+  // 認証済みトークン（API 呼び出し時に使用）
+  let _idToken = null;
+  // 最後に取得した analytics データ（CSV エクスポート用）
+  let _lastData = null;
+
+  // ---- API ヘルパー ----
+  const API_BASE = (function () {
+    if (typeof API_GATEWAY_URL !== 'undefined' && !API_GATEWAY_URL.includes('PLACEHOLDER')) {
+      return API_GATEWAY_URL.replace(/\/+$/, '') + '/v1';
+    }
+    return null;
+  })();
+
+  async function fetchAnalytics() {
+    if (!API_BASE || !_idToken) return null;
+    try {
+      const res = await fetch(API_BASE + '/analytics/summary', {
+        headers: { 'Authorization': _idToken, 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) {
+        console.warn('[analytics] HTTP', res.status);
+        return null;
+      }
+      return await res.json();
+    } catch (e) {
+      console.warn('[analytics] fetch error:', e);
+      return null;
+    }
+  }
+
+  function escapeHtml(str) {
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(str || '').replace(/[&<>"']/g, c => map[c]);
+  }
+
+  // ---- Cognito アクセスガード ----
+  function initAuth() {
+    if (
+      typeof AmazonCognitoIdentity === 'undefined' ||
+      COGNITO_USER_POOL_ID.includes('PLACEHOLDER')
+    ) {
+      // ローカル環境 – 認証なしで起動
+      startDashboard();
+      return;
+    }
+
+    const userPool    = new AmazonCognitoIdentity.CognitoUserPool({ UserPoolId: COGNITO_USER_POOL_ID, ClientId: COGNITO_CLIENT_ID });
+    const cognitoUser = userPool.getCurrentUser();
+
+    if (!cognitoUser) {
+      showAccessDenied();
+      return;
+    }
+
+    cognitoUser.getSession((err, session) => {
+      if (err || !session || !session.isValid()) {
+        showAccessDenied('セッションが無効です。アプリからログインし直してください。');
+        return;
+      }
+
+      // 必ずリフレッシュして最新グループ情報を取得
+      cognitoUser.refreshSession(session.getRefreshToken(), (refreshErr, freshSession) => {
+        const activeSession = (!refreshErr && freshSession) ? freshSession : session;
+        const payload   = activeSession.getIdToken().decodePayload();
+        const groups    = payload['cognito:groups'] || [];
+        const hasAccess = ALLOWED_ROLES.some(r => groups.includes(r));
+
+        if (!hasAccess) {
+          const msg = groups.length === 0
+            ? 'グループが割り当てられていません。\nCognito コンソールで admin または analyst グループに追加後、再度アクセスしてください。'
+            : `現在のロール: ${groups.join(', ')}\n管理者または分析者のみアクセスできます。`;
+          showAccessDenied(msg);
+          return;
+        }
+
+        // トークンを保存（API 呼び出し用）
+        _idToken = activeSession.getIdToken().getJwtToken();
+
+        // ヘッダーにユーザー情報を表示
+        const topRole = ['admin', 'analyst'].find(r => groups.includes(r)) || 'user';
+        const name    = payload.name || payload.email || '';
+        document.getElementById('headerUserName').textContent = name;
+        document.getElementById('headerUserRole').textContent = ROLE_LABEL[topRole] || topRole;
+
+        startDashboard();
+      });
+    });
+  }
+
+  function showAccessDenied(msg) {
+    const defaultMsg = 'このページは管理者または分析者のみアクセスできます。';
+    document.getElementById('accessDeniedMsg').textContent = msg || defaultMsg;
+    document.getElementById('mainContent').style.display = 'none';
+    document.getElementById('accessDenied').style.display = 'block';
+  }
+
+  function startDashboard() {
+    load();
+    setInterval(load, 30000);
+  }
+
+  async function load() {
+    const now = new Date();
+    document.getElementById('headerTime').textContent = now.toLocaleString('ja-JP');
+    document.getElementById('updatedAt').textContent  = '最終更新: ' + now.toLocaleString('ja-JP');
+
+    // API 経由でデータ取得
+    const data = await fetchAnalytics();
+    if (data) {
+      _lastData = data;
+      renderFromApi(data);
+    } else {
+      // フォールバック: localStorage（ローカル開発 / API 未設定時）
+      renderFromLocalStorage();
+    }
+  }
+
+  // ---- API データで描画 ----
+  function renderFromApi(data) {
+    const { summary, tasksByType, userRanking } = data;
+
+    // ---- KPI ----
+    document.getElementById('kpiUsers').textContent    = summary.totalUsers;
+    document.getElementById('kpiTasks').textContent    = summary.totalTasks;
+    document.getElementById('kpiTasksSub').textContent = `完了 ${summary.completedTasks} 件`;
+    document.getElementById('kpiRate').textContent     = summary.completionRate + '%';
+    document.getElementById('kpiHabits').textContent   = summary.totalHabits;
+
+    // ---- カテゴリ別達成率 ----
+    const catOrder = ['exercise', 'diet', 'sleep'];
+    document.getElementById('categoryStats').innerHTML = catOrder.map(type => {
+      const s   = tasksByType[type] || { total: 0, completed: 0 };
+      const pct = s.total ? Math.round(s.completed / s.total * 100) : 0;
+      return `
+        <div style="margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <span>${CATEGORY_LABEL[type] || type}</span>
+            <span style="font-size:13px;color:var(--text-muted);">${s.completed} / ${s.total} 件</span>
+          </div>
+          <div class="bar-wrap">
+            <div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div>
+            <div class="bar-pct">${pct}%</div>
+          </div>
+        </div>`;
+    }).join('');
+
+    // ---- ユーザーテーブル ----
+    const userTableHtml = userRanking.length ? userRanking.map(u => {
+      const uRate = u.totalTasks ? Math.round(u.completedTasks / u.totalTasks * 100) : 0;
+      return `<tr>
+        <td><strong>${escapeHtml(u.fullName)}</strong></td>
+        <td>${escapeHtml(u.email)}</td>
+        <td>Lv.${u.level || 1}</td>
+        <td>${u.weekPoints.toLocaleString()} pt</td>
+        <td>${u.totalTasks}</td>
+        <td><span class="badge ${uRate >= 70 ? 'badge-ok' : 'badge-ng'}">${uRate}%</span></td>
+        <td>${u.habitCount}</td>
+        <td>-</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="8" class="empty">ユーザーがいません</td></tr>`;
+    document.getElementById('userTable').innerHTML = userTableHtml;
+
+    // ---- タスクテーブル（週間完了ランキング上位ユーザー表示） ----
+    const taskTableHtml = userRanking.slice(0, 30).map(u => {
+      return `<tr>
+        <td>${escapeHtml(u.fullName)}</td>
+        <td><span class="badge badge-ok">週間集計</span></td>
+        <td>${u.weekCompleted} / ${u.totalTasks} タスク達成</td>
+        <td>${u.weekPoints} pt</td>
+        <td><span class="badge ${u.weekCompleted > 0 ? 'badge-ok' : 'badge-ng'}">${u.weekCompleted > 0 ? '✅ 活動中' : '❌ 未活動'}</span></td>
+        <td>今週</td>
+      </tr>`;
+    }).join('') || `<tr><td colspan="6" class="empty">データがありません</td></tr>`;
+    document.getElementById('taskTable').innerHTML = taskTableHtml;
+  }
+
+  // ---- localStorage フォールバック（ローカル開発用） ----
+  function renderFromLocalStorage() {
+    const users  = JSON.parse(localStorage.getItem('users')  || '[]');
+    const tasks  = JSON.parse(localStorage.getItem('tasks')  || '[]');
+    const habits = JSON.parse(localStorage.getItem('habits') || '[]');
+
+    const completed = tasks.filter(t => t.completed).length;
+    const rate = tasks.length ? Math.round(completed / tasks.length * 100) : 0;
+    document.getElementById('kpiUsers').textContent    = users.length;
+    document.getElementById('kpiTasks').textContent    = tasks.length;
+    document.getElementById('kpiTasksSub').textContent = `完了 ${completed} 件`;
+    document.getElementById('kpiRate').textContent     = rate + '%';
+    document.getElementById('kpiHabits').textContent   = habits.length;
+
+    const catStats = { exercise: {t:0,c:0}, diet: {t:0,c:0}, sleep: {t:0,c:0} };
+    tasks.forEach(t => { if (catStats[t.type]) { catStats[t.type].t++; if (t.completed) catStats[t.type].c++; } });
+    document.getElementById('categoryStats').innerHTML = Object.entries(catStats).map(([type, s]) => {
+      const pct = s.t ? Math.round(s.c / s.t * 100) : 0;
+      return `<div style="margin-bottom:16px;"><div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>${CATEGORY_LABEL[type]}</span><span style="font-size:13px;color:var(--text-muted);">${s.c} / ${s.t} 件</span></div><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div><div class="bar-pct">${pct}%</div></div></div>`;
+    }).join('');
+
+    const userMap = {}; users.forEach(u => { userMap[u.id || u.userId] = u; });
+    const userStats = {};
+    tasks.forEach(t => { if (!userStats[t.userId]) userStats[t.userId] = { total: 0, done: 0 }; userStats[t.userId].total++; if (t.completed) userStats[t.userId].done++; });
+    document.getElementById('userTable').innerHTML = users.length
+      ? users.map(u => { const s = userStats[u.id || u.userId] || {total:0,done:0}; const uRate = s.total ? Math.round(s.done/s.total*100) : 0; const uHabits = habits.filter(h => h.userId === (u.id || u.userId)).length; return `<tr><td><strong>${escapeHtml(u.fullName)}</strong></td><td>${escapeHtml(u.email)}</td><td>Lv.${u.level||1}</td><td>${(u.totalPoints||0).toLocaleString()} pt</td><td>${s.total}</td><td><span class="badge ${uRate>=70?'badge-ok':'badge-ng'}">${uRate}%</span></td><td>${uHabits}</td><td>-</td></tr>`; }).join('')
+      : `<tr><td colspan="8" class="empty">ユーザーがいません</td></tr>`;
+
+    const sorted = [...tasks].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,30);
+    document.getElementById('taskTable').innerHTML = sorted.length
+      ? sorted.map(t => { const user=userMap[t.userId]; const name=user?escapeHtml(user.fullName):'不明'; const dt=t.date?new Date(t.date).toLocaleString('ja-JP'):'-'; return `<tr><td>${name}</td><td><span class="badge ${CATEGORY_CLASS[t.type]||''}">${CATEGORY_LABEL[t.type]||t.type}</span></td><td>${escapeHtml(t.title)}</td><td>${t.points||0} pt</td><td><span class="badge ${t.completed?'badge-ok':'badge-ng'}">${t.completed?'✅ 完了':'❌ 未完'}</span></td><td>${dt}</td></tr>`; }).join('')
+      : `<tr><td colspan="6" class="empty">タスクがありません</td></tr>`;
+  }
+
+  function exportCSV() {
+    if (_lastData) {
+      // API データからエクスポート
+      const { userRanking } = _lastData;
+      const rows = [['ユーザー名', 'メール', 'レベル', '今週ポイント', '総タスク', '完了タスク', '習慣数']];
+      userRanking.forEach(u => {
+        rows.push([u.fullName || '', u.email || '', u.level || 1, u.weekPoints, u.totalTasks, u.completedTasks, u.habitCount]);
+      });
+      const csv = '﻿' + rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `health-todo-analytics-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+    } else {
+      // フォールバック: localStorage
+      const tasks  = JSON.parse(localStorage.getItem('tasks')  || '[]');
+      const users  = JSON.parse(localStorage.getItem('users')  || '[]');
+      const userMap = {}; users.forEach(u => { userMap[u.id||u.userId] = u; });
+      const rows = [['ユーザー名', 'メール', 'カテゴリ', 'タスク名', 'ポイント', '完了', '日時']];
+      tasks.forEach(t => {
+        const u = userMap[t.userId] || {};
+        rows.push([u.fullName||'', u.email||'', CATEGORY_LABEL[t.type]||t.type, t.title, t.points||0, t.completed?'完了':'未完', t.date?new Date(t.date).toLocaleString('ja-JP'):'']);
+      });
+      const csv = '﻿' + rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `health-todo-tasks-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+    }
+  }
+
+  // ページ読み込み時に認証チェックを実行
+  window.addEventListener('load', initAuth);
+</script>
+</body>
+</html>
